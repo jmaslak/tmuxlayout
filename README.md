@@ -106,12 +106,11 @@ wide() { tmuxlayout 11123 11124; }
 
 ### Options
 
-| Option | Effect |
-| --- | --- |
-| `-print` | Print the layout string instead of applying it. |
-| `-size WxH` | Render for a canvas of this size rather than asking tmux. Implies not needing a tmux at all, unless the layout is also being applied. |
-| `-version` | Print the version. |
-| `-selfupdate` | Fetch and install the latest release in place. |
+- `-print` — print the layout string instead of applying it.
+- `-size WxH` — render for a canvas of this size instead of asking tmux, which
+  is what lets it run outside tmux.
+- `-version` — print the version.
+- `-selfupdate` — fetch and install the latest release in place.
 
 `-print` and `-size` together are how to see what a layout would be without
 being in tmux:
