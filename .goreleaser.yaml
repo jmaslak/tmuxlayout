@@ -1,0 +1,47 @@
+version: 2
+
+project_name: tmuxlayout
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: tmuxlayout
+    main: ./cmd/tmuxlayout
+    binary: tmuxlayout
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - darwin
+      - linux
+      - windows
+      - freebsd
+    goarch:
+      - amd64
+      - arm64
+      - riscv64
+    ignore:
+      - goos: darwin
+        goarch: riscv64
+      - goos: windows
+        goarch: riscv64
+      - goos: freebsd
+        goarch: riscv64
+
+# Ship raw binaries, not archives: the self-update code in cmd/tmuxlayout
+# downloads an asset named after the binary directly and expects it to already
+# be the executable, with no tar.gz/zip to unpack.
+archives:
+  - id: tmuxlayout
+    formats:
+      - binary
+    name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true

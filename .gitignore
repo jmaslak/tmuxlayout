@@ -1,0 +1,18 @@
+# Build output
+/dist/
+/build/
+
+# Test output
+*.test
+*.out
+/tmuxlayout/testdata/fuzz/
+
+# Editors and platform noise
+*~
+.DS_Store
+
+# AI stuff
+.claude
+
+# Editor
+.vscode
