@@ -22,9 +22,10 @@ All notable changes to this project are documented here. The format is based on
   the start of every pane not against the edge of the canvas, for the border
   before it, but took that character off the width of the *first* pane rather
   than each one, so its last pane ran one column past the edge. tmux accepted
-  the result, silently repaired the offset, and left the panes a column away
-  from where it would have put them itself. An even split now renders to the
-  same string tmux writes, byte for byte.
+  the result, repaired the offset, and carried on, so the panes came out a
+  column away from where they were asked to be and nothing reported an error.
+  The panes now tile the canvas exactly and tmux leaves them where it is given
+  them.
 
 ### Changed
 

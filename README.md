@@ -195,8 +195,10 @@ documentation is on [pkg.go.dev][godoc].
 The picture is laid over a grid with one cell per character. A canvas of `S`
 characters divided into `n` gives `n-1` of them to the borders between panes
 and shares the rest out evenly, with any remainder going to the leftmost or
-topmost divisions — which is exactly how tmux divides a window for its own
-`even-horizontal` and `even-vertical` layouts.
+topmost divisions, so no pane ends up more than a character bigger than
+another. Where the remainder goes is a choice rather than a rule: tmux 3.6
+makes the same one for its own `even-horizontal` and `even-vertical` layouts,
+while older versions put the whole remainder on the last pane.
 
 Rendering is then a recursion. A region of the picture holding one pane is a
 leaf. Otherwise, look for a column that no pane straddles; if there is one,
@@ -222,11 +224,12 @@ two ways, both deliberate.
 start of every pane that is not against the edge of the canvas, for the border
 before it, but takes the same character off the width of the *first* pane
 rather than each one. On an 80 column canvas split in two it produces
-`{39x24,0,0,...,40x24,41,0,...}`, whose second pane runs to column 80 on a
-canvas whose last column is 79. tmux accepts it, silently repairs the offset,
-and leaves the panes at 39 and 40 columns where its own even split is 40 and
-39. This produces the latter, and the difference is visible: the divider sits
-one column over from where tmux would have put it.
+`{39x24,0,0,...,40x24,41,0,...}`, whose second pane starts at column 41 and is
+40 wide, running to column 80 on a canvas whose last column is 79. tmux does
+not reject that. It repairs the offset and carries on, so the panes come out a
+column away from where they were asked to be and nothing reports an error.
+Here the panes tile the canvas exactly, and tmux leaves them where it is
+given them.
 
 **Divisions of three or more panes are flat.** Splitting three columns, the
 Perl version emits one pane beside a nested division of the other two;
@@ -236,8 +239,12 @@ as a unit.
 
 Both are checked against a running tmux rather than against recorded
 expectations — see `tmux_live_test.go`, which applies each layout to a real
-window and requires tmux to report back exactly what it was handed. Rendering
-an even split now produces the same string tmux does, byte for byte.
+window and requires tmux to report back exactly what it was handed.
+
+Those tests compare the structure tmux builds, not its pane sizes. An even
+split is not one exact answer: tmux divides a window that does not divide
+evenly differently in different versions, and pinning the output to whichever
+tmux is installed would only be testing that.
 
 Smaller changes: empty rows are ignored, so a trailing newline or pipe is no
 longer an error; a canvas too small for the layout is reported instead of

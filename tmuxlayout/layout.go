@@ -127,10 +127,14 @@ func (l *Layout) Render(def ...string) (string, error) {
 // accounts for the border the last division does not need.
 //
 // The n-1 borders come out of the span first, and what is left over is shared
-// out evenly, with any remainder going to the leftmost or topmost divisions.
-// That is how tmux itself divides a window for its even-horizontal and
-// even-vertical layouts, so an even layout rendered here is the same string
-// tmux would have written.
+// out evenly, with any remainder going to the leftmost or topmost divisions,
+// so that no division is more than one character bigger than another.
+//
+// Where the remainder goes is a choice rather than a rule, and tmux makes it
+// differently in different versions: tmux 3.6 also gives it to the leftmost
+// divisions, while older ones hand all of it to the last division, which for
+// six columns of an 80 character canvas is 12,12,12,12,12,15 against
+// 13,13,13,12,12,12. Both are even splits, and tmux accepts either.
 //
 // size must be at least 2n-1, or some division is left no room at all; Render
 // rejects a layout that small before it gets here.

@@ -18,7 +18,7 @@ package tmuxlayout
 import (
 	"fmt"
 	"os/exec"
-	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -77,18 +77,30 @@ func TestAgainstTmux(t *testing.T) {
 	}
 }
 
-// TestEvenLayoutsMatchTmux checks the rendered layout against the one tmux
-// builds itself for its even-horizontal and even-vertical layouts. Those are
-// the only layouts tmux and this package both have an opinion about, so they
-// are the only place the division arithmetic can be compared directly.
-func TestEvenLayoutsMatchTmux(t *testing.T) {
+// TestEvenLayoutsMatchTmuxShape compares a rendered even split against the one
+// tmux builds for its own even-horizontal and even-vertical layouts.
+//
+// Only the shape is compared, not the pane sizes. Both divide a window into
+// equal parts, but they differ in where the leftover characters go when the
+// canvas does not divide evenly, and tmux has changed its own answer: tmux 3.6
+// gives one leftover each to the leftmost divisions, while older versions hand
+// the whole remainder to the last one, which for six panes of an 80 column
+// window is 12,12,12,12,12,15 against 13,13,13,12,12,12. Both are even splits
+// and neither is a thing to pin to whichever tmux happens to be installed.
+//
+// What does have to match is the structure, which tmux has not changed: n panes
+// side by side are one division of n, never nested pairs.
+func TestEvenLayoutsMatchTmuxShape(t *testing.T) {
 	requireTmux(t)
 
 	const width, height = 80, 24
 	for panes := 1; panes <= 6; panes++ {
-		for _, even := range []struct{ name, def string }{
-			{"even-horizontal", strings.Join(columns(panes), "")},
-			{"even-vertical", strings.Join(columns(panes), "|")},
+		for _, even := range []struct {
+			name, def string
+			along     func(pane) int
+		}{
+			{"even-horizontal", strings.Join(columns(panes), ""), func(p pane) int { return p.w }},
+			{"even-vertical", strings.Join(columns(panes), "|"), func(p pane) int { return p.h }},
 		} {
 			t.Run(fmt.Sprintf("%s/%d", even.name, panes), func(t *testing.T) {
 				session := newSession(t, width, height, panes)
@@ -101,22 +113,25 @@ func TestEvenLayoutsMatchTmux(t *testing.T) {
 					t.Fatalf("Render(%q): %v", even.def, err)
 				}
 
-				if normalize(got) != normalize(want) {
-					t.Errorf("Render(%q) does not divide the window the way tmux's %s does\n ours: %s\n tmux: %s",
-						even.def, even.name, normalize(got), normalize(want))
+				if shape(got) != shape(want) {
+					t.Errorf("Render(%q) is not built the way tmux's %s is\n ours: %s -> %s\n tmux: %s -> %s",
+						even.def, even.name, normalize(got), shape(got), normalize(want), shape(want))
+				}
+
+				// However the leftovers are handed out, an even split
+				// is only even if no part is more than one character
+				// bigger than another.
+				sizes := make([]int, 0, panes)
+				for _, p := range leafPanes(t, got) {
+					sizes = append(sizes, even.along(p))
+				}
+				if spread := slices.Max(sizes) - slices.Min(sizes); spread > 1 {
+					t.Errorf("Render(%q) divides the window into %v, which differ by %d, not an even split",
+						even.def, sizes, spread)
 				}
 			})
 		}
 	}
-}
-
-// columns returns n distinct single character pane names.
-func columns(n int) []string {
-	names := make([]string, n)
-	for i := range names {
-		names[i] = string(rune('a' + i))
-	}
-	return names
 }
 
 func requireTmux(t *testing.T) {
@@ -176,18 +191,4 @@ func tmuxOrFail(t *testing.T, args ...string) string {
 		t.Fatalf("tmux %s: %v", strings.Join(args, " "), err)
 	}
 	return strings.TrimSpace(string(out))
-}
-
-// paneID matches the pane id on the end of a leaf of a layout string.
-var paneID = regexp.MustCompile(`(\d+x\d+,\d+,\d+),\d+`)
-
-// normalize strips the parts of a layout string that are not geometry: the
-// checksum, which covers the pane ids, and the pane ids themselves, which tmux
-// assigns and this package cannot know.
-func normalize(layout string) string {
-	_, body, ok := strings.Cut(layout, ",")
-	if !ok {
-		body = layout
-	}
-	return paneID.ReplaceAllString(body, "$1,0")
 }
